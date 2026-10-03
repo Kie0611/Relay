@@ -1,11 +1,10 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
-import { checkDatabaseReadiness } from "../../db/health";
 
 export type ReadinessCheck = () => Promise<boolean>;
 
 export function createHealthRouter(
-  checkReadiness: ReadinessCheck = checkDatabaseReadiness,
+  checkReadiness: ReadinessCheck,
 ): Router {
   const healthRouter = express.Router();
 
@@ -33,5 +32,3 @@ export function createHealthRouter(
 
   return healthRouter;
 }
-
-export const healthRouter = createHealthRouter();
