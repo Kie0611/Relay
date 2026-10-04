@@ -1,7 +1,7 @@
 import express from "express";
 import request from "supertest";
 import { describe, expect, it, vi } from "vitest";
-import { createHealthRouter } from "./health";
+import { createHealthRouter } from "../../../server/routes/health";
 
 function createTestApp(readinessCheck: () => Promise<boolean>) {
   const app = express();
