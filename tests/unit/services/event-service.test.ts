@@ -46,6 +46,30 @@ function createPersistenceResult(
 }
 
 describe("event service", () => {
+  it("creates the same fingerprint when object keys have different insertion order", () => {
+    const firstFingerprint = createRequestFingerprint("user.created", {
+      user: { id: "user-1", role: "admin" },
+      metadata: { source: "dashboard", region: "asia" },
+    });
+    const secondFingerprint = createRequestFingerprint("user.created", {
+      metadata: { region: "asia", source: "dashboard" },
+      user: { role: "admin", id: "user-1" },
+    });
+
+    expect(firstFingerprint).toBe(secondFingerprint);
+  });
+
+  it("creates different fingerprints when array order changes", () => {
+    const firstFingerprint = createRequestFingerprint("user.created", {
+      roles: ["admin", "editor"],
+    });
+    const secondFingerprint = createRequestFingerprint("user.created", {
+      roles: ["editor", "admin"],
+    });
+
+    expect(firstFingerprint).not.toBe(secondFingerprint);
+  });
+
   it("returns project_not_found without querying events or persisting", async () => {
     const findProjectById = vi.fn<EventQueries["findProjectById"]>(
       async () => null,
