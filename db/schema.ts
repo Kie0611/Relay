@@ -17,6 +17,11 @@ export const deliveryStatusEnum = pgEnum("delivery_status", [
   "cancelled",
 ]);
 
+export const deliveryRunTypeEnum = pgEnum("delivery_run_type", [
+  "initial",
+  "manual_replay",
+]);
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 120 }).notNull(),
@@ -88,6 +93,30 @@ export const deliveries = pgTable("deliveries", {
   id: uuid("id").primaryKey().defaultRandom(),
   eventId: uuid("event_id").references(() => events.id).notNull(),
   endpointId: uuid("endpoint_id").references(() => endpoints.id).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true
+  })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true
+  })
+    .defaultNow()
+    .notNull()
+  },  
+  (table) => [
+    unique("delivery_unique").on(
+      table.eventId,
+      table.endpointId,
+    ),
+  ],
+);
+
+export const deliveryRuns = pgTable("delivery_runs", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deliveryId: uuid("delivery_id").references(() => deliveries.id).notNull(),
+  runNumber: integer("run_number").default(1).notNull(),
+  runType: deliveryRunTypeEnum("run_type").default("initial").notNull(),
   status: deliveryStatusEnum("status").default("pending").notNull(),
   attemptCount: integer("attempt_count").default(0).notNull(),
   nextAttemptAt: timestamp("next_attempt_at", {
@@ -106,19 +135,20 @@ export const deliveries = pgTable("deliveries", {
   })
     .defaultNow()
     .notNull()
-  },  
+  },
   (table) => [
-    check("attempt_nonnegative", sql`${table.attemptCount} >= 0`),
-    unique("delivery_unique").on(
-      table.eventId,
-      table.endpointId,
+    check("run_number_positive", sql`${table.runNumber} >= 1`),
+    check("run_attempt_nonnegative", sql`${table.attemptCount} >= 0`),
+    unique("delivery_run_sequence_unique").on(
+      table.deliveryId,
+      table.runNumber,
     ),
   ],
 );
 
 export const deliveryAttempts = pgTable("delivery_attempts", {
   id: uuid("id").primaryKey().defaultRandom(),
-  deliveryId: uuid("delivery_id").references(() => deliveries.id).notNull(),
+  deliveryRunId: uuid("delivery_run_id").references(() => deliveryRuns.id).notNull(),
   attemptNumber: integer("attempt_number").notNull(),
   responseStatus: integer("response_status"),
   errorCode: varchar("error_code"),
@@ -135,7 +165,7 @@ export const deliveryAttempts = pgTable("delivery_attempts", {
     check("attempt_number_positive", sql`${table.attemptNumber} >= 1`),
     check("duration_nonnegative", sql`${table.durationMs} >= 0`),
     unique("attempt_unique").on(
-      table.deliveryId,
+      table.deliveryRunId,
       table.attemptNumber,
     ),
   ],

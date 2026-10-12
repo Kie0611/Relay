@@ -7,6 +7,7 @@ import { eventQueries } from "../../../db/queries/events";
 import {
   deliveryAttempts,
   deliveries,
+  deliveryRuns,
   endpointSubscriptions,
   endpoints,
   events,
@@ -93,9 +94,21 @@ async function cleanupProject(projectId: string): Promise<void> {
     const deliveryIds = deliveryRows.map((delivery) => delivery.id);
 
     if (deliveryIds.length > 0) {
+      const runRows = await db
+        .select({ id: deliveryRuns.id })
+        .from(deliveryRuns)
+        .where(inArray(deliveryRuns.deliveryId, deliveryIds));
+      const runIds = runRows.map((run) => run.id);
+
+      if (runIds.length > 0) {
+        await db
+          .delete(deliveryAttempts)
+          .where(inArray(deliveryAttempts.deliveryRunId, runIds));
+      }
+
       await db
-        .delete(deliveryAttempts)
-        .where(inArray(deliveryAttempts.deliveryId, deliveryIds));
+        .delete(deliveryRuns)
+        .where(inArray(deliveryRuns.deliveryId, deliveryIds));
     }
 
     await db.delete(deliveries).where(inArray(deliveries.eventId, eventIds));
@@ -174,8 +187,6 @@ describe("event queries", () => {
     const deliveryRows = await db
       .select({
         endpointId: deliveries.endpointId,
-        status: deliveries.status,
-        attemptCount: deliveries.attemptCount,
       })
       .from(deliveries)
       .where(eq(deliveries.eventId, result.event.id));
@@ -183,10 +194,28 @@ describe("event queries", () => {
     expect(deliveryRows).toEqual([
       {
         endpointId: matchingEndpointId,
-        status: "pending",
-        attemptCount: 0,
       },
     ]);
+
+    const runRows = await db
+      .select({
+        deliveryId: deliveryRuns.deliveryId,
+        runNumber: deliveryRuns.runNumber,
+        runType: deliveryRuns.runType,
+        status: deliveryRuns.status,
+        attemptCount: deliveryRuns.attemptCount,
+      })
+      .from(deliveryRuns)
+      .innerJoin(deliveries, eq(deliveryRuns.deliveryId, deliveries.id))
+      .where(eq(deliveries.eventId, result.event.id));
+
+    expect(runRows).toHaveLength(1);
+    expect(runRows[0]).toMatchObject({
+      runNumber: 1,
+      runType: "initial",
+      status: "pending",
+      attemptCount: 0,
+    });
   });
 
   it("returns the existing event and does not duplicate its delivery", async () => {
@@ -227,8 +256,14 @@ describe("event queries", () => {
       .select({ id: deliveries.id })
       .from(deliveries)
       .where(eq(deliveries.eventId, firstResult.event.id));
+    const runRows = await db
+      .select({ id: deliveryRuns.id })
+      .from(deliveryRuns)
+      .innerJoin(deliveries, eq(deliveryRuns.deliveryId, deliveries.id))
+      .where(eq(deliveries.eventId, firstResult.event.id));
 
     expect(eventRows).toHaveLength(1);
     expect(deliveryRows).toHaveLength(1);
+    expect(runRows).toHaveLength(1);
   });
 });
