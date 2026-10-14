@@ -1,31 +1,7 @@
 import express from "express";
 import type { Request, Response, Router } from "express";
 import { replayDeliveryParamsSchema } from "../schemas/deliveries";
-
-type ReplayDeliveryInput = {
-  projectId: string,
-  deliveryId: string,
-};
-
-type ReplayDeliveryResult =
-  | {
-      kind: "created";
-      run: {
-        deliveryId: string;
-        runId: string;
-        runNumber: number;
-        runType: "manual_replay";
-        status: "pending";
-      };
-    }
-  | {
-      kind: "delivery_not_found";
-    }
-  | {
-      kind: "not_replayable";
-    };
-
-type ReplayDelivery = (input: ReplayDeliveryInput) => Promise<ReplayDeliveryResult>;
+import type { ReplayDelivery } from "../services/delivery-service";
 
 
 export function createDeliveriesRouter(
