@@ -3,9 +3,11 @@ import { randomUUID } from "node:crypto";
 import { and, eq, inArray } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../../../db";
+import { dispatchOutboxQueries } from "../../../db/queries/outbox";
 import { eventQueries } from "../../../db/queries/events";
 import {
   deliveryAttempts,
+  deliveryDispatchOutbox,
   deliveries,
   deliveryRuns,
   endpointSubscriptions,
@@ -199,6 +201,7 @@ describe("event queries", () => {
 
     const runRows = await db
       .select({
+        runId: deliveryRuns.id,
         deliveryId: deliveryRuns.deliveryId,
         runNumber: deliveryRuns.runNumber,
         runType: deliveryRuns.runType,
@@ -215,6 +218,47 @@ describe("event queries", () => {
       runType: "initial",
       status: "pending",
       attemptCount: 0,
+    });
+
+    const allOutboxRows = await db
+      .select({
+        id: deliveryDispatchOutbox.id,
+        deliveryRunId: deliveryDispatchOutbox.deliveryRunId,
+        status: deliveryDispatchOutbox.status,
+        availableAt: deliveryDispatchOutbox.availableAt,
+      })
+      .from(deliveryDispatchOutbox)
+      .where(eq(deliveryDispatchOutbox.deliveryRunId, runRows[0]!.runId));
+
+    expect(allOutboxRows).toHaveLength(1);
+
+    const pendingDispatches =
+      await dispatchOutboxQueries.findPendingDispatches();
+    expect(pendingDispatches).toContainEqual({
+      outboxId: expect.any(String),
+      deliveryRunId: runRows[0]!.runId,
+    });
+
+    const [outboxRow] = await db
+      .select({
+        id: deliveryDispatchOutbox.id,
+        deliveryRunId: deliveryDispatchOutbox.deliveryRunId,
+      })
+      .from(deliveryDispatchOutbox)
+      .where(eq(deliveryDispatchOutbox.deliveryRunId, runRows[0]!.runId));
+
+    expect(outboxRow).toEqual({
+      id: expect.any(String),
+      deliveryRunId: runRows[0]!.runId,
+    });
+
+    await dispatchOutboxQueries.markPublished(outboxRow.id);
+
+    const publishedPendingDispatches =
+      await dispatchOutboxQueries.findPendingDispatches();
+    expect(publishedPendingDispatches).not.toContainEqual({
+      outboxId: outboxRow.id,
+      deliveryRunId: runRows[0]!.runId,
     });
   });
 

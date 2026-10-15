@@ -4,9 +4,11 @@ import { and, eq, inArray } from "drizzle-orm";
 import { afterEach, describe, expect, it } from "vitest";
 import { db } from "../../../db";
 import { deliveryQueries } from "../../../db/queries/deliveries";
+import { deliveryRunQueries } from "../../../db/queries/delivery-runs";
 import { eventQueries } from "../../../db/queries/events";
 import {
   deliveryAttempts,
+  deliveryDispatchOutbox,
   deliveries,
   deliveryRuns,
   endpointSubscriptions,
@@ -222,6 +224,21 @@ describe("delivery queries", () => {
     expect(replayRun.runId).not.toBe(fixture.runId);
 
     await expect(
+      db
+        .select({
+          deliveryRunId: deliveryDispatchOutbox.deliveryRunId,
+          status: deliveryDispatchOutbox.status,
+        })
+        .from(deliveryDispatchOutbox)
+        .where(eq(deliveryDispatchOutbox.deliveryRunId, replayRun.runId)),
+    ).resolves.toEqual([
+      {
+        deliveryRunId: replayRun.runId,
+        status: "pending",
+      },
+    ]);
+
+    await expect(
       deliveryQueries.findDeliveryForReplay({
         projectId: fixture.projectId,
         deliveryId: fixture.deliveryId,
@@ -232,6 +249,94 @@ describe("delivery queries", () => {
         runNumber: 2,
         status: "pending",
       },
+    });
+  });
+
+  it("claims an eligible run once and prevents a second active claim", async () => {
+    const fixture = await createDeliveryFixture();
+
+    const firstClaim = await deliveryRunQueries.claimDeliveryRun({
+      deliveryRunId: fixture.runId,
+      workerId: "worker-one",
+      leaseDurationMs: 30_000,
+    });
+
+    expect(firstClaim).toMatchObject({
+      id: fixture.runId,
+      deliveryId: fixture.deliveryId,
+      attemptCount: 0,
+      leaseOwner: "worker-one",
+    });
+    expect(firstClaim?.leaseExpiresAt.getTime()).toBeGreaterThan(Date.now());
+
+    await expect(
+      deliveryRunQueries.claimDeliveryRun({
+        deliveryRunId: fixture.runId,
+        workerId: "worker-two",
+        leaseDurationMs: 30_000,
+      }),
+    ).resolves.toBeNull();
+  });
+
+  it("claims a retry only after its schedule and recovers an expired lease", async () => {
+    const fixture = await createDeliveryFixture();
+    const future = new Date(Date.now() + 60_000);
+
+    await db
+      .update(deliveryRuns)
+      .set({
+        status: "retrying",
+        nextAttemptAt: future,
+        updatedAt: new Date(),
+      })
+      .where(eq(deliveryRuns.id, fixture.runId));
+
+    await expect(
+      deliveryRunQueries.claimDeliveryRun({
+        deliveryRunId: fixture.runId,
+        workerId: "worker-one",
+        leaseDurationMs: 30_000,
+      }),
+    ).resolves.toBeNull();
+
+    await db
+      .update(deliveryRuns)
+      .set({
+        nextAttemptAt: new Date(Date.now() - 1_000),
+        updatedAt: new Date(),
+      })
+      .where(eq(deliveryRuns.id, fixture.runId));
+
+    const retryClaim = await deliveryRunQueries.claimDeliveryRun({
+      deliveryRunId: fixture.runId,
+      workerId: "worker-one",
+      leaseDurationMs: 30_000,
+    });
+
+    expect(retryClaim).toMatchObject({
+      id: fixture.runId,
+      leaseOwner: "worker-one",
+    });
+
+    await db
+      .update(deliveryRuns)
+      .set({
+        status: "processing",
+        leaseOwner: "crashed-worker",
+        leaseExpiresAt: new Date(Date.now() - 1_000),
+        updatedAt: new Date(),
+      })
+      .where(eq(deliveryRuns.id, fixture.runId));
+
+    const recoveredClaim = await deliveryRunQueries.claimDeliveryRun({
+      deliveryRunId: fixture.runId,
+      workerId: "recovery-worker",
+      leaseDurationMs: 30_000,
+    });
+
+    expect(recoveredClaim).toMatchObject({
+      id: fixture.runId,
+      leaseOwner: "recovery-worker",
     });
   });
 });
