@@ -2,6 +2,7 @@ import { and, eq } from "drizzle-orm";
 import { db } from "../index";
 import {
   deliveries,
+  deliveryDispatchOutbox,
   deliveryRuns,
   endpointSubscriptions,
   endpoints,
@@ -143,13 +144,19 @@ async function createEventAndDeliveries(
         })),
       ).returning({ id: deliveries.id });
 
-      await tx.insert(deliveryRuns).values(
+      const insertedRuns = await tx.insert(deliveryRuns).values(
         insertedDeliveries.map((delivery) => ({
           deliveryId: delivery.id,
           runNumber: 1,
           runType: "initial" as const,
           status: "pending" as const,
           attemptCount: 0,
+        })),
+      ).returning({ id: deliveryRuns.id });
+
+      await tx.insert(deliveryDispatchOutbox).values(
+        insertedRuns.map((run) => ({
+          deliveryRunId: run.id,
         })),
       );
     }

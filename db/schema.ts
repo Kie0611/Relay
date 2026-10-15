@@ -22,6 +22,11 @@ export const deliveryRunTypeEnum = pgEnum("delivery_run_type", [
   "manual_replay",
 ]);
 
+export const dispatchOutboxStatusEnum = pgEnum("dispatch_outbox_status", [
+  "pending",
+  "published",
+]);
+
 export const projects = pgTable("projects", {
   id: uuid("id").primaryKey().defaultRandom(),
   name: varchar("name", { length: 120 }).notNull(),
@@ -122,6 +127,10 @@ export const deliveryRuns = pgTable("delivery_runs", {
   nextAttemptAt: timestamp("next_attempt_at", {
     withTimezone: true
   }),
+  leaseOwner: varchar("lease_owner", { length: 128 }),
+  leaseExpiresAt: timestamp("lease_expires_at", {
+    withTimezone: true
+  }),
   deliveredAt: timestamp("delivered_at", {
     withTimezone: true
   }),
@@ -145,6 +154,34 @@ export const deliveryRuns = pgTable("delivery_runs", {
     ),
   ],
 );
+
+export const deliveryDispatchOutbox = pgTable("delivery_dispatch_outbox", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  deliveryRunId: uuid("delivery_run_id")
+    .references(() => deliveryRuns.id, { onDelete: "cascade" })
+    .notNull(),
+  status: dispatchOutboxStatusEnum("status").default("pending").notNull(),
+  availableAt: timestamp("available_at", {
+    withTimezone: true
+  })
+    .defaultNow()
+    .notNull(),
+  publishedAt: timestamp("published_at", {
+    withTimezone: true
+  }),
+  createdAt: timestamp("created_at", {
+    withTimezone: true
+  })
+    .defaultNow()
+    .notNull(),
+  updatedAt: timestamp("updated_at", {
+    withTimezone: true
+  })
+    .defaultNow()
+    .notNull(),
+}, (table) => [
+  unique("delivery_dispatch_outbox_run_unique").on(table.deliveryRunId),
+]);
 
 export const deliveryAttempts = pgTable("delivery_attempts", {
   id: uuid("id").primaryKey().defaultRandom(),

@@ -2,6 +2,7 @@ import { and, desc, eq, max } from "drizzle-orm";
 import { db } from "../index";
 import {
   deliveries,
+  deliveryDispatchOutbox,
   deliveryRuns,
   events,
 } from "../schema";
@@ -100,6 +101,10 @@ async function createManualReplayRun(input: {
     if (!insertedRun) {
       throw new Error("Manual replay run was not created");
     }
+
+    await tx.insert(deliveryDispatchOutbox).values({
+      deliveryRunId: insertedRun.runId,
+    });
 
     return {
       deliveryId: insertedRun.deliveryId,
