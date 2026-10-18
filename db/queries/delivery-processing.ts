@@ -16,6 +16,7 @@ import {
 } from "../schema";
 import type { EventPayload } from "../../server/services/event-service";
 import type { EventType } from "../../server/schemas/events";
+import { decryptSigningSecret } from "../../server/security/secret-box";
 
 export type DeliveryRunStatus =
 (typeof deliveryStatusEnum.enumValues)[number];
@@ -128,7 +129,7 @@ async function findDeliveryContext(
 
     endpointId: row.endpointId,
     endpointUrl: row.endpointUrl,
-    signingSecret: row.signingSecret,
+    signingSecret: decryptSigningSecret(row.signingSecret),
     endpointActive: row.endpointActive,
   };
 }

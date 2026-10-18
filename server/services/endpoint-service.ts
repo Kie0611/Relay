@@ -10,6 +10,12 @@ export type RotateEndpointSecretInput = {
   endpointId: string;
 };
 
+export type SetEndpointActiveInput = {
+  projectId: string;
+  endpointId: string;
+  active: boolean;
+};
+
 export type StoredEndpoint = {
   id: string;
   projectId: string;
@@ -48,6 +54,14 @@ export type EndpointQueries = {
     endpointId: string;
     signingSecret: string;
   }): Promise<StoredEndpoint | null>;
+
+  listEndpoints(projectId: string): Promise<StoredEndpoint[]>;
+
+  setEndpointActive(input: {
+    projectId: string;
+    endpointId: string;
+    active: boolean;
+  }): Promise<StoredEndpoint | null>;
 };
 
 export type CreateEndpointResult =
@@ -68,6 +82,24 @@ export type RotateEndpointSecretResult =
       kind: "endpoint_not_found";
     };
 
+export type ListEndpointsResult =
+  | {
+      kind: "listed";
+      endpoints: PublicEndpoint[];
+    }
+  | {
+      kind: "project_not_found";
+    };
+
+export type SetEndpointActiveResult =
+  | {
+      kind: "updated";
+      endpoint: PublicEndpoint;
+    }
+  | {
+      kind: "endpoint_not_found";
+    };
+
 export type EndpointManagementService = {
   createEndpoint(
     input: CreateEndpointInput,
@@ -76,6 +108,14 @@ export type EndpointManagementService = {
   rotateEndpointSecret(
     input: RotateEndpointSecretInput,
   ): Promise<RotateEndpointSecretResult>;
+
+  listEndpoints(
+    projectId: string,
+  ): Promise<ListEndpointsResult>;
+
+  setEndpointActive(
+    input: SetEndpointActiveInput,
+  ): Promise<SetEndpointActiveResult>;
 };
 
 export type SigningSecretGenerator = () => string;
@@ -154,6 +194,42 @@ export function createEndpointService(
       return {
         kind: "rotated",
         endpoint: toEndpointWithSecret(endpoint),
+      };
+    },
+
+    async listEndpoints(
+      projectId: string,
+    ): Promise<ListEndpointsResult> {
+      const project = await queries.findProjectById(projectId);
+
+      if (!project) {
+        return {
+          kind: "project_not_found",
+        };
+      }
+
+      const endpoints = await queries.listEndpoints(projectId);
+
+      return {
+        kind: "listed",
+        endpoints: endpoints.map(toPublicEndpoint),
+      };
+    },
+
+    async setEndpointActive(
+      input: SetEndpointActiveInput,
+    ): Promise<SetEndpointActiveResult> {
+      const endpoint = await queries.setEndpointActive(input);
+
+      if (!endpoint) {
+        return {
+          kind: "endpoint_not_found",
+        };
+      }
+
+      return {
+        kind: "updated",
+        endpoint: toPublicEndpoint(endpoint),
       };
     },
   };

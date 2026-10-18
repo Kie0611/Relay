@@ -44,6 +44,12 @@ function createQueryMocks(): EndpointQueries {
         signingSecret: input.signingSecret,
         updatedAt: new Date("2026-10-18T12:01:00.000Z"),
       })),
+    listEndpoints: vi.fn<EndpointQueries["listEndpoints"]>(
+      async () => [],
+    ),
+    setEndpointActive: vi.fn<
+      EndpointQueries["setEndpointActive"]
+    >(async () => createStoredEndpoint()),
   };
 }
 

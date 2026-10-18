@@ -27,3 +27,18 @@ export const rotateEndpointSecretParamsSchema = z.object({
   projectId: z.uuid(),
   endpointId: z.uuid(),
 });
+
+export const endpointParamsSchema = z.object({
+  projectId: z.uuid(),
+  endpointId: z.uuid(),
+});
+
+export const projectParamsSchema = z.object({
+  projectId: z.uuid(),
+});
+
+export const setEndpointActiveBodySchema = z
+  .object({
+    active: z.boolean(),
+  })
+  .strict();

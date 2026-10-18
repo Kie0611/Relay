@@ -29,9 +29,21 @@ function createTestApp(service: EndpointManagementService) {
   return app;
 }
 
+function serviceDefaults() {
+  return {
+    listEndpoints: vi.fn<
+      EndpointManagementService["listEndpoints"]
+    >(),
+    setEndpointActive: vi.fn<
+      EndpointManagementService["setEndpointActive"]
+    >(),
+  };
+}
+
 describe("endpoint routes", () => {
   it("returns 201 for a valid endpoint registration", async () => {
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(async () => ({
@@ -58,6 +70,7 @@ describe("endpoint routes", () => {
 
   it("returns 400 and does not call the service for an invalid URL", async () => {
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(),
@@ -81,6 +94,7 @@ describe("endpoint routes", () => {
 
   it("returns 404 when the project does not exist", async () => {
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(async () => ({
@@ -112,6 +126,7 @@ describe("endpoint routes", () => {
       updatedAt: "2026-10-18T12:01:00.000Z",
     };
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(),
@@ -138,6 +153,7 @@ describe("endpoint routes", () => {
 
   it("returns 404 when the endpoint is not in the project", async () => {
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(),
@@ -164,6 +180,7 @@ describe("endpoint routes", () => {
 
   it("returns a stable error without exposing an internal failure", async () => {
     const service: EndpointManagementService = {
+      ...serviceDefaults(),
       createEndpoint: vi.fn<
         EndpointManagementService["createEndpoint"]
       >(async () => {
@@ -189,5 +206,81 @@ describe("endpoint routes", () => {
     expect(JSON.stringify(response.body)).not.toContain(
       "secret storage details",
     );
+  });
+
+  it("lists project endpoints without returning signing secrets", async () => {
+    const publicEndpoint = {
+      id: endpointId,
+      projectId,
+      url: sampleEndpoint.url,
+      active: true,
+      createdAt: sampleEndpoint.createdAt,
+      updatedAt: sampleEndpoint.updatedAt,
+    };
+    const service: EndpointManagementService = {
+      ...serviceDefaults(),
+      createEndpoint: vi.fn<
+        EndpointManagementService["createEndpoint"]
+      >(),
+      rotateEndpointSecret: vi.fn<
+        EndpointManagementService["rotateEndpointSecret"]
+      >(),
+      listEndpoints: vi.fn<
+        EndpointManagementService["listEndpoints"]
+      >(async () => ({
+        kind: "listed",
+        endpoints: [publicEndpoint],
+      })),
+    };
+    const app = createTestApp(service);
+
+    const response = await request(app).get(
+      `/api/projects/${projectId}/endpoints`,
+    );
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual({
+      endpoints: [publicEndpoint],
+    });
+    expect(response.body.endpoints[0].signingSecret).toBeUndefined();
+  });
+
+  it("updates endpoint activation state", async () => {
+    const updatedEndpoint = {
+      id: endpointId,
+      projectId,
+      url: sampleEndpoint.url,
+      active: false,
+      createdAt: sampleEndpoint.createdAt,
+      updatedAt: "2026-10-18T12:02:00.000Z",
+    };
+    const service: EndpointManagementService = {
+      ...serviceDefaults(),
+      createEndpoint: vi.fn<
+        EndpointManagementService["createEndpoint"]
+      >(),
+      rotateEndpointSecret: vi.fn<
+        EndpointManagementService["rotateEndpointSecret"]
+      >(),
+      setEndpointActive: vi.fn<
+        EndpointManagementService["setEndpointActive"]
+      >(async () => ({
+        kind: "updated",
+        endpoint: updatedEndpoint,
+      })),
+    };
+    const app = createTestApp(service);
+
+    const response = await request(app)
+      .patch(`/api/projects/${projectId}/endpoints/${endpointId}`)
+      .send({ active: false });
+
+    expect(response.status).toBe(200);
+    expect(response.body).toEqual(updatedEndpoint);
+    expect(service.setEndpointActive).toHaveBeenCalledWith({
+      projectId,
+      endpointId,
+      active: false,
+    });
   });
 });

@@ -1,36 +1,74 @@
-This is a [Next.js](https://nextjs.org) project bootstrapped with [`create-next-app`](https://nextjs.org/docs/app/api-reference/cli/create-next-app).
+# Relay
 
-## Getting Started
+Relay is a webhook delivery platform built with Next.js, Express, Drizzle,
+Neon PostgreSQL, Redis, and BullMQ.
 
-First, run the development server:
+## Local services
+
+Relay uses:
+
+- Neon PostgreSQL for projects, events, endpoints, delivery runs, attempts,
+  and the dispatch outbox.
+- Redis for BullMQ job transport.
+- Express on port `4000` for the API.
+- Next.js on port `3000` for the control-plane dashboard.
+
+Copy `.env.example` to `.env` and provide real values. Never commit `.env`.
+`RELAY_SECRET_ENCRYPTION_KEY` must be a base64 value that decodes to exactly
+32 random bytes. For example, generate one with:
 
 ```bash
-npm run dev
-# or
-yarn dev
-# or
-pnpm dev
-# or
-bun dev
+node -e "console.log(require('node:crypto').randomBytes(32).toString('base64'))"
 ```
 
-Open [http://localhost:3000](http://localhost:3000) with your browser to see the result.
+Apply database migrations with:
 
-You can start editing the page by modifying `app/page.tsx`. The page auto-updates as you edit the file.
+```bash
+npm run db:migrate
+```
 
-This project uses [`next/font`](https://nextjs.org/docs/app/building-your-application/optimizing/fonts) to automatically optimize and load [Geist](https://vercel.com/font), a new font family for Vercel.
+Run the API and dashboard separately:
 
-## Learn More
+```bash
+npx tsx server/index.ts
+npm run dev
+```
 
-To learn more about Next.js, take a look at the following resources:
+Run the delivery worker after Redis is available:
 
-- [Next.js Documentation](https://nextjs.org/docs) - learn about Next.js features and API.
-- [Learn Next.js](https://nextjs.org/learn) - an interactive Next.js tutorial.
+```bash
+npm run worker
+```
 
-You can check out [the Next.js GitHub repository](https://github.com/vercel/next.js) - your feedback and contributions are welcome!
+The worker reads `REDIS_URL`, `RELAY_MAX_ATTEMPTS`,
+`RELAY_RETRY_BASE_DELAY_MS`, `RELAY_LEASE_DURATION_MS`, and
+`RELAY_WEBHOOK_TIMEOUT_MS` from the environment. It claims authoritative
+delivery runs from PostgreSQL before sending a signed webhook.
 
-## Deploy on Vercel
+## Authentication
 
-The easiest way to deploy your Next.js app is to use the [Vercel Platform](https://vercel.com/new?utm_medium=default-template&filter=next.js&utm_source=create-next-app&utm_campaign=create-next-app-readme) from the creators of Next.js.
+Set `RELAY_AUTH_REQUIRED=true` outside local development. An admin creates a
+project API key through:
 
-Check out our [Next.js deployment documentation](https://nextjs.org/docs/app/building-your-application/deploying) for more details.
+```text
+POST /api/projects/:projectId/api-keys
+X-Relay-Admin-Key: <RELAY_ADMIN_KEY>
+```
+
+The raw project key is returned once. Store it securely and send it on future
+project requests as `X-Relay-API-Key` or `Authorization: Bearer <key>`.
+Only the SHA-256 hash is stored in PostgreSQL, and the key is scoped to its
+project.
+
+## Verification
+
+```bash
+npm test
+npx tsc --noEmit --incremental false --pretty false
+npm run lint
+npm run build
+```
+
+The build script uses Next.js webpack mode because the default Turbopack build
+has an environment-specific CSS worker panic in this workspace. The optional
+`npm run build:turbopack` script remains available for testing that path.

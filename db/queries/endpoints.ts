@@ -5,6 +5,10 @@ import type {
   EndpointQueries,
   StoredEndpoint,
 } from "../../server/services/endpoint-service";
+import {
+  decryptSigningSecret,
+  encryptSigningSecret,
+} from "../../server/security/secret-box";
 
 const endpointSelection = {
   id: endpoints.id,
@@ -23,7 +27,7 @@ function toStoredEndpoint(
     id: endpoint.id,
     projectId: endpoint.projectId,
     url: endpoint.url,
-    signingSecret: endpoint.signingSecret,
+    signingSecret: decryptSigningSecret(endpoint.signingSecret),
     active: endpoint.active,
     createdAt: endpoint.createdAt,
     updatedAt: endpoint.updatedAt,
@@ -52,7 +56,7 @@ async function createEndpoint(input: {
     .values({
       projectId: input.projectId,
       url: input.url,
-      signingSecret: input.signingSecret,
+      signingSecret: encryptSigningSecret(input.signingSecret),
     })
     .returning(endpointSelection);
 
@@ -73,7 +77,43 @@ async function rotateEndpointSecret(input: {
   const rows = await db
     .update(endpoints)
     .set({
-      signingSecret: input.signingSecret,
+      signingSecret: encryptSigningSecret(input.signingSecret),
+      updatedAt: sql`now()`,
+    })
+    .where(
+      and(
+        eq(endpoints.id, input.endpointId),
+        eq(endpoints.projectId, input.projectId),
+      ),
+    )
+    .returning(endpointSelection);
+
+  const endpoint = rows[0];
+
+  return endpoint ? toStoredEndpoint(endpoint) : null;
+}
+
+async function listEndpoints(
+  projectId: string,
+): Promise<StoredEndpoint[]> {
+  const rows = await db
+    .select(endpointSelection)
+    .from(endpoints)
+    .where(eq(endpoints.projectId, projectId))
+    .orderBy(endpoints.createdAt);
+
+  return rows.map(toStoredEndpoint);
+}
+
+async function setEndpointActive(input: {
+  projectId: string;
+  endpointId: string;
+  active: boolean;
+}): Promise<StoredEndpoint | null> {
+  const rows = await db
+    .update(endpoints)
+    .set({
+      active: input.active,
       updatedAt: sql`now()`,
     })
     .where(
@@ -93,4 +133,6 @@ export const endpointQueries: EndpointQueries = {
   findProjectById,
   createEndpoint,
   rotateEndpointSecret,
+  listEndpoints,
+  setEndpointActive,
 };

@@ -46,6 +46,15 @@ describe("endpoint queries", () => {
       signingSecret: "initial-secret",
       active: true,
     });
+
+    const [storedRow] = await db
+      .select({ signingSecret: endpoints.signingSecret })
+      .from(endpoints)
+      .where(eq(endpoints.id, endpoint.id));
+
+    expect(storedRow).toBeDefined();
+    expect(storedRow?.signingSecret).toMatch(/^v1:/);
+    expect(storedRow?.signingSecret).not.toContain("initial-secret");
   });
 
   it("rotates a secret only inside the requested project", async () => {
@@ -75,5 +84,33 @@ describe("endpoint queries", () => {
       signingSecret: "rotated-secret",
     });
     expect(crossProjectRotation).toBeNull();
+  });
+
+  it("lists endpoints and toggles activation inside the project", async () => {
+    const projectId = await createProject();
+    const endpoint = await endpointQueries.createEndpoint({
+      projectId,
+      url: "https://example.com/webhooks",
+      signingSecret: "initial-secret",
+    });
+
+    const listed = await endpointQueries.listEndpoints(projectId);
+    const paused = await endpointQueries.setEndpointActive({
+      projectId,
+      endpointId: endpoint.id,
+      active: false,
+    });
+
+    expect(listed).toHaveLength(1);
+    expect(listed[0]).toMatchObject({
+      id: endpoint.id,
+      projectId,
+      active: true,
+    });
+    expect(paused).toMatchObject({
+      id: endpoint.id,
+      projectId,
+      active: false,
+    });
   });
 });

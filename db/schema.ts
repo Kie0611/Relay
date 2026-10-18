@@ -37,6 +37,26 @@ export const projects = pgTable("projects", {
     .defaultNow()
 });
 
+export const projectApiKeys = pgTable("project_api_keys", {
+  id: uuid("id").primaryKey().defaultRandom(),
+  projectId: uuid("project_id")
+    .references(() => projects.id, { onDelete: "cascade" })
+    .notNull(),
+  name: varchar("name", { length: 120 }).notNull(),
+  keyPrefix: varchar("key_prefix", { length: 24 }).notNull(),
+  keyHash: varchar("key_hash", { length: 64 }).notNull(),
+  createdAt: timestamp("created_at", {
+    withTimezone: true,
+  })
+    .defaultNow()
+    .notNull(),
+  revokedAt: timestamp("revoked_at", {
+    withTimezone: true,
+  }),
+}, (table) => [
+  unique("project_api_key_hash_unique").on(table.keyHash),
+]);
+
 export const endpoints = pgTable("endpoints", {
   id: uuid("id").primaryKey().defaultRandom(),
   projectId: uuid("project_id").references(() => projects.id).notNull(),
