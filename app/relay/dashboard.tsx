@@ -150,7 +150,7 @@ function SecretDrawer({ secret, onClose }: { secret: string; onClose: () => void
 
 export function ConnectionGate() {
   const router = useRouter();
-  const { connectLive, startPreview, busy, message } = useRelay();
+  const { connectLive, startPreview, busy } = useRelay();
   const [apiUrl, setApiUrl] = useState(process.env.NEXT_PUBLIC_RELAY_API_URL ?? "http://localhost:4000/api");
   const [projectId, setProjectId] = useState("");
   const [apiKey, setApiKey] = useState("");
@@ -186,7 +186,6 @@ export function ConnectionGate() {
             <Button type="button" variant="secondary" disabled={busy} onClick={handlePreview} className="w-full">Preview with sample data</Button>
           </form>
           <div className="mt-7 flex gap-3 rounded-[14px] border border-[var(--relay-border)] bg-[var(--relay-canvas)] p-4 text-xs leading-5 text-[var(--relay-muted)]"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-teal-600" /><span>Preview mode is visual only. It does not call Express or write to Neon.</span></div>
-          {message ? <p className="mt-4 text-sm text-rose-700" role="alert">{message}</p> : null}
         </section>
       </div>
     </main>
@@ -194,7 +193,7 @@ export function ConnectionGate() {
 }
 
 function OverviewView() {
-  const { data, mode, message, clearMessage } = useRelay();
+  const { data } = useRelay();
   const delivered = data.deliveries.filter((delivery) => delivery.status === "delivered").length;
   const retrying = data.deliveries.filter((delivery) => ["retrying", "processing"].includes(delivery.status)).length;
   const failed = data.deliveries.filter((delivery) => ["failed", "dead_lettered"].includes(delivery.status)).length;
@@ -205,7 +204,6 @@ function OverviewView() {
 
   return (
     <>
-      {message ? <Notice tone={/unable|error|failed|not found/i.test(message) ? "error" : mode === "preview" ? "warning" : "info"} onDismiss={clearMessage}>{message}</Notice> : null}
       <div className="mt-8 grid gap-4 md:grid-cols-2 xl:grid-cols-4"><MetricCard label="Active endpoints" value={activeEndpoints} detail={`${data.endpoints.length} destinations registered`} /><MetricCard label="Delivery records" value={data.deliveries.length} detail="Latest run per event-to-endpoint pair" accent="green" /><MetricCard label="Success rate" value={`${successRate}%`} detail={`${delivered} delivered in the visible window`} accent="teal" /><MetricCard label="Needs attention" value={attention.length} detail={`${retrying} retrying · ${failed} failed`} accent="rose" /></div>
       <div className="mt-6 grid gap-6 xl:grid-cols-[minmax(0,1fr)_330px]">
         <Panel>

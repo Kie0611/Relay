@@ -5,11 +5,13 @@ import {
   useCallback,
   useContext,
   useMemo,
+  useRef,
   useState,
   type ReactNode,
 } from "react";
 import { createRelayApi } from "./api";
 import { cloneDemoData, demoProjectId, demoProjectName } from "./fixtures";
+import { ToastViewport, type ToastItem, type ToastTone } from "./toast";
 import type {
   ConnectionMode,
   Delivery,
@@ -28,9 +30,9 @@ type RelayContextValue = {
   mode: ConnectionMode | null;
   connected: boolean;
   busy: boolean;
-  message: string;
   data: ProjectData;
   revealedSecret: string | null;
+  toasts: ToastItem[];
   connectLive(input: {
     apiUrl: string;
     projectId: string;
@@ -38,7 +40,7 @@ type RelayContextValue = {
   }): Promise<boolean>;
   startPreview(): void;
   disconnect(): void;
-  clearMessage(): void;
+  dismissToast(id: number): void;
   dismissSecret(): void;
   createEndpoint(url: string): Promise<void>;
   setEndpointActive(endpoint: Endpoint, active: boolean): Promise<void>;
@@ -92,6 +94,13 @@ function deriveEvents(deliveries: Delivery[]): ProjectData["events"] {
   }));
 }
 
+function getActionError(error: unknown, fallback: string): string {
+  if (!(error instanceof Error) || !error.message) return fallback;
+
+  const unsafeMessage = /database|postgres|sql|connection string|neon/i.test(error.message);
+  return unsafeMessage ? fallback : error.message;
+}
+
 export function RelayProvider({ children }: { children: ReactNode }) {
   const [apiUrl, setApiUrl] = useState(defaultApiUrl);
   const [projectId, setProjectId] = useState("");
@@ -100,10 +109,24 @@ export function RelayProvider({ children }: { children: ReactNode }) {
   const [mode, setMode] = useState<ConnectionMode | null>(null);
   const [data, setData] = useState<ProjectData>(emptyData);
   const [busy, setBusy] = useState(false);
-  const [message, setMessage] = useState("");
   const [revealedSecret, setRevealedSecret] = useState<string | null>(null);
+  const [toasts, setToasts] = useState<ToastItem[]>([]);
+  const toastSequence = useRef(0);
 
   const connected = mode !== null;
+
+  const pushToast = useCallback((message: string, tone: ToastTone = "info") => {
+    const id = Date.now() * 1000 + toastSequence.current;
+    toastSequence.current += 1;
+    setToasts((current) => [...current.slice(-3), { id, message, tone }]);
+    window.setTimeout(() => {
+      setToasts((current) => current.filter((toast) => toast.id !== id));
+    }, 4500);
+  }, []);
+
+  const dismissToast = useCallback((id: number) => {
+    setToasts((current) => current.filter((toast) => toast.id !== id));
+  }, []);
 
   const connectLive = useCallback(async (input: {
     apiUrl: string;
@@ -111,12 +134,11 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     apiKey: string;
   }): Promise<boolean> => {
     if (!input.projectId.trim()) {
-      setMessage("Enter a project ID before connecting.");
+      pushToast("Enter a project ID before connecting.", "error");
       return false;
     }
 
     setBusy(true);
-    setMessage("Checking project access…");
 
     try {
       const api = createRelayApi(input.apiUrl, input.apiKey);
@@ -137,15 +159,15 @@ export function RelayProvider({ children }: { children: ReactNode }) {
       });
       setMode("live");
       setRevealedSecret(null);
-      setMessage("Connected. Live project data is loaded from the Relay API.");
+      pushToast("Connected. Live project data is loaded from the Relay API.", "success");
       return true;
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to connect to this project.");
+      pushToast(getActionError(error, "Unable to connect to this project."), "error");
       return false;
     } finally {
       setBusy(false);
     }
-  }, []);
+  }, [pushToast]);
 
   const startPreview = useCallback(() => {
     setApiUrl(defaultApiUrl);
@@ -155,8 +177,8 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     setData(cloneDemoData());
     setMode("preview");
     setRevealedSecret(null);
-    setMessage("Preview mode is active. Changes stay in this browser and are not persisted.");
-  }, []);
+    pushToast("Preview mode is active. Changes stay in this browser and are not persisted.", "info");
+  }, [pushToast]);
 
   const disconnect = useCallback(() => {
     setMode(null);
@@ -165,10 +187,8 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     setApiKey("");
     setData(emptyData);
     setRevealedSecret(null);
-    setMessage("Disconnected. The project key was removed from memory.");
-  }, []);
-
-  const clearMessage = useCallback(() => setMessage(""), []);
+    pushToast("Disconnected. The project key was removed from memory.", "success");
+  }, [pushToast]);
   const dismissSecret = useCallback(() => setRevealedSecret(null), []);
 
   const createEndpoint = useCallback(async (url: string): Promise<void> => {
@@ -190,7 +210,7 @@ export function RelayProvider({ children }: { children: ReactNode }) {
         };
         setData((current) => ({ ...current, endpoints: [endpoint, ...current.endpoints] }));
         setRevealedSecret(endpoint.signingSecret);
-        setMessage("Preview endpoint created. The signing secret is shown once for this demo.");
+        pushToast("Preview endpoint created. The signing secret is shown once for this demo.", "success");
         return;
       }
 
@@ -200,13 +220,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
         endpoints: [endpoint, ...current.endpoints],
       }));
       setRevealedSecret(endpoint.signingSecret);
-      setMessage("Endpoint created. Save the signing secret now; it is only returned once.");
+      pushToast("Endpoint created. Save the signing secret now; it is only returned once.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to create endpoint.");
+      pushToast(getActionError(error, "Unable to create endpoint."), "error");
     } finally {
       setBusy(false);
     }
-  }, [apiKey, apiUrl, mode, projectId]);
+  }, [apiKey, apiUrl, mode, projectId, pushToast]);
 
   const setEndpointActive = useCallback(async (endpoint: Endpoint, active: boolean): Promise<void> => {
     setBusy(true);
@@ -225,13 +245,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
             : delivery,
         ),
       }));
-      setMessage(`${updated.url} is now ${updated.active ? "active" : "paused"}.`);
+      pushToast(`${updated.url} is now ${updated.active ? "active" : "paused"}.`, "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to update endpoint.");
+      pushToast(getActionError(error, "Unable to update endpoint."), "error");
     } finally {
       setBusy(false);
     }
-  }, [apiKey, apiUrl, mode, projectId]);
+  }, [apiKey, apiUrl, mode, projectId, pushToast]);
 
   const rotateEndpointSecret = useCallback(async (endpoint: Endpoint): Promise<void> => {
     setBusy(true);
@@ -248,13 +268,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
           : item),
       }));
       setRevealedSecret(rotated.signingSecret);
-      setMessage("Secret rotated. Save the new secret now; the old secret is no longer valid.");
+      pushToast("Secret rotated. Save the new secret now; the old secret is no longer valid.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to rotate secret.");
+      pushToast(getActionError(error, "Unable to rotate secret."), "error");
     } finally {
       setBusy(false);
     }
-  }, [apiKey, apiUrl, mode, projectId]);
+  }, [apiKey, apiUrl, mode, projectId, pushToast]);
 
   const replayDelivery = useCallback(async (delivery: Delivery): Promise<void> => {
     setBusy(true);
@@ -277,7 +297,7 @@ export function RelayProvider({ children }: { children: ReactNode }) {
               }
             : item),
         }));
-        setMessage("Preview replay queued. No external delivery was made.");
+        pushToast("Preview replay queued. No external delivery was made.", "info");
         return;
       }
 
@@ -297,13 +317,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
             }
           : item),
       }));
-      setMessage("Replay queued. The delivery worker will process it asynchronously.");
+      pushToast("Replay queued. The delivery worker will process it asynchronously.", "success");
     } catch (error) {
-      setMessage(error instanceof Error ? error.message : "Unable to replay delivery.");
+      pushToast(getActionError(error, "Unable to replay delivery."), "error");
     } finally {
       setBusy(false);
     }
-  }, [apiKey, apiUrl, mode, projectId]);
+  }, [apiKey, apiUrl, mode, projectId, pushToast]);
 
   const value = useMemo<RelayContextValue>(() => ({
     apiUrl,
@@ -313,13 +333,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     mode,
     connected,
     busy,
-    message,
     data,
     revealedSecret,
+    toasts,
     connectLive,
     startPreview,
     disconnect,
-    clearMessage,
+    dismissToast,
     dismissSecret,
     createEndpoint,
     setEndpointActive,
@@ -329,14 +349,13 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     apiKey,
     apiUrl,
     busy,
-    clearMessage,
     connectLive,
     connected,
     createEndpoint,
     data,
+    dismissToast,
     disconnect,
     dismissSecret,
-    message,
     mode,
     projectId,
     projectName,
@@ -345,9 +364,15 @@ export function RelayProvider({ children }: { children: ReactNode }) {
     rotateEndpointSecret,
     setEndpointActive,
     startPreview,
+    toasts,
   ]);
 
-  return <RelayContext.Provider value={value}>{children}</RelayContext.Provider>;
+  return (
+    <RelayContext.Provider value={value}>
+      <ToastViewport toasts={toasts} onDismiss={dismissToast} />
+      {children}
+    </RelayContext.Provider>
+  );
 }
 
 export function useRelay(): RelayContextValue {
