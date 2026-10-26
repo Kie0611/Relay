@@ -52,9 +52,9 @@ export function RelayShell({ children }: { children: ReactNode }) {
           ))}
         </nav>
 
-        <div className="border-t border-[var(--relay-border)] pt-5">
+        <div className="pt-5">
           <p className="text-xs leading-5 text-[var(--relay-muted)]">Session-only access. Keys are never persisted by this dashboard.</p>
-          <button type="button" onClick={disconnect} className="mt-4 w-full text-left text-xs font-semibold text-slate-500 hover:text-rose-700">
+          <button type="button" onClick={disconnect} className="relay-button relay-button-danger mt-4 w-full justify-start text-left">
             Disconnect project
           </button>
         </div>
@@ -86,7 +86,7 @@ export function RelayShell({ children }: { children: ReactNode }) {
               <small>{item.detail}</small>
             </Link>
           ))}
-          <button type="button" onClick={disconnect} className="mt-4 border-t border-[var(--relay-border)] pt-4 text-left text-xs font-semibold text-rose-700">
+          <button type="button" onClick={disconnect} className="relay-button relay-button-danger mt-4 w-full justify-start text-left">
             Disconnect project
           </button>
         </div>
@@ -96,7 +96,6 @@ export function RelayShell({ children }: { children: ReactNode }) {
         <div className="mx-auto max-w-[1480px] px-5 py-5 sm:px-8 lg:px-10 lg:py-8">
           <header className="mb-8 flex flex-wrap items-center justify-between gap-4 border-b border-[var(--relay-border)] pb-5">
             <div className="flex min-w-0 items-center gap-3">
-              <div className="hidden h-7 w-px bg-[var(--relay-border)] sm:block" />
               <div className="min-w-0">
                 <p className="text-[10px] font-bold uppercase tracking-[0.18em] text-[var(--relay-muted)]">Relay project</p>
                 <p className="mt-1 truncate text-sm font-semibold text-[var(--relay-ink)]">{projectName} <span className="font-mono text-xs font-normal text-[var(--relay-muted)]">{projectLabel}</span></p>
