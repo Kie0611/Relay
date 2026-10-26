@@ -14,8 +14,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: "Relay Control Plane",
-  description: "Manage webhook endpoints and delivery signing secrets.",
+  title: "Relay",
+  description: "Inspect webhook delivery health, endpoints, and signing trust.",
 };
 
 export default function RootLayout({ children }: LayoutProps<"/">) {

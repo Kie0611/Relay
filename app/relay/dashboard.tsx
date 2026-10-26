@@ -3,7 +3,7 @@
 import Link from "next/link";
 import { usePathname, useRouter } from "next/navigation";
 import { useEffect, useState, type FormEvent } from "react";
-import { Button, CopyValue, Drawer, EmptyState, MetricCard, Notice, PageHeading, Panel, SkeletonRows, StatusBadge } from "./components";
+import { Brand, Button, CopyValue, Drawer, EmptyState, MetricCard, Notice, PageHeading, Panel, SkeletonRows, StatusBadge } from "./components";
 import { RelayShell } from "./shell";
 import { useRelay } from "./provider";
 import type { DashboardView, Delivery, RelayEvent } from "./types";
@@ -169,11 +169,11 @@ export function ConnectionGate() {
     <main className="relay-gate">
       <div className="relay-gate-grid">
         <section className="hidden max-w-xl self-center lg:block">
-          <div className="flex items-center gap-3"><span className="grid h-10 w-10 place-items-center rounded-[13px] bg-teal-700 text-sm font-black text-white">R</span><span className="text-sm font-bold tracking-[0.25em] text-[var(--relay-ink)]">RELAY</span></div>
+          <Brand href="/" />
           <p className="mt-12 text-[11px] font-bold uppercase tracking-[0.2em] text-teal-700">Webhook delivery control plane</p>
           <h1 className="mt-4 text-[clamp(3.2rem,6vw,6rem)] font-semibold leading-[0.92] tracking-[-0.08em] text-[var(--relay-ink)]">Make every delivery explain itself.</h1>
           <p className="mt-7 max-w-lg text-base leading-7 text-[var(--relay-muted)]">Inspect event fan-out, follow retry health, and manage endpoint trust from one operational surface.</p>
-          <div className="mt-12 grid max-w-lg grid-cols-3 gap-5 border-t border-[var(--relay-border)] pt-5"><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">01</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Observe delivery health</p></div><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">02</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Control destinations</p></div><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">03</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Protect signing trust</p></div></div>
+          <div className="mt-12 grid max-w-lg grid-cols-3 gap-3 rounded-[16px] border border-[var(--relay-border)] bg-white/60 p-4"><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">01</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Observe delivery health</p></div><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">02</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Control destinations</p></div><div><p className="text-2xl font-semibold text-[var(--relay-ink)]">03</p><p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">Protect signing trust</p></div></div>
         </section>
         <section className="relay-gate-card">
           <div className="flex items-start justify-between gap-4"><div><p className="relay-eyebrow">Secure connection</p><h2 className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--relay-ink)]">Open a project</h2></div><span className="connection-pill">API key access</span></div>
@@ -185,7 +185,7 @@ export function ConnectionGate() {
             <Button type="submit" disabled={busy} className="w-full">{busy ? "Checking access…" : "Connect to project"}</Button>
             <Button type="button" variant="secondary" disabled={busy} onClick={handlePreview} className="w-full">Preview with sample data</Button>
           </form>
-          <div className="mt-7 flex gap-3 border-t border-[var(--relay-border)] pt-5 text-xs leading-5 text-[var(--relay-muted)]"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-teal-600" /><span>Preview mode is visual only. It does not call Express or write to Neon.</span></div>
+          <div className="mt-7 flex gap-3 rounded-[14px] border border-[var(--relay-border)] bg-[var(--relay-canvas)] p-4 text-xs leading-5 text-[var(--relay-muted)]"><span className="mt-1 h-2 w-2 shrink-0 rounded-full bg-teal-600" /><span>Preview mode is visual only. It does not call Express or write to Neon.</span></div>
           {message ? <p className="mt-4 text-sm text-rose-700" role="alert">{message}</p> : null}
         </section>
       </div>

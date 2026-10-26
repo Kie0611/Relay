@@ -1,6 +1,7 @@
 "use client";
 
 import Link from "next/link";
+import Image from "next/image";
 import { useEffect, type ReactNode } from "react";
 import type { DashboardView, DeliveryStatus } from "./types";
 
@@ -12,13 +13,18 @@ export const navItems: Array<{ view: DashboardView; label: string; detail: strin
   { view: "access", label: "Access & security", detail: "Project trust" },
 ];
 
-export function Brand() {
+export function Brand({ href = "/overview" }: { href?: string }) {
   return (
-    <Link href="/overview" className="flex items-center gap-3" aria-label="Relay overview">
-      <span className="grid h-9 w-9 place-items-center rounded-[12px] bg-teal-700 text-sm font-black text-white shadow-sm shadow-teal-800/20">
-        R
-      </span>
-      <span className="text-[13px] font-bold tracking-[0.25em] text-[var(--relay-ink)]">
+    <Link href={href} className="flex items-center gap-3" aria-label="Relay overview">
+      <Image
+        src="/relay-mark.svg"
+        alt=""
+        width={36}
+        height={36}
+        priority
+        className="h-9 w-9 rounded-[12px] shadow-sm shadow-teal-800/20"
+      />
+      <span className="text-[13px] font-bold tracking-[0.3em] text-[var(--relay-ink)]">
         RELAY
       </span>
     </Link>
@@ -83,8 +89,10 @@ export function MetricCard({ label, value, detail, accent = "teal" }: {
 }) {
   return (
     <div className="relay-metric-card">
-      <div className={`metric-mark metric-mark-${accent}`} />
-      <p className="text-xs font-semibold text-[var(--relay-muted)]">{label}</p>
+      <div className="flex items-center gap-2">
+        <span className={`metric-dot metric-dot-${accent}`} aria-hidden="true" />
+        <p className="text-xs font-semibold text-[var(--relay-muted)]">{label}</p>
+      </div>
       <p className="mt-3 text-3xl font-semibold tracking-[-0.05em] text-[var(--relay-ink)]">{value}</p>
       <p className="mt-2 text-xs leading-5 text-[var(--relay-muted)]">{detail}</p>
     </div>

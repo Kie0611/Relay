@@ -1,0 +1,12 @@
+<svg xmlns="http://www.w3.org/2000/svg" width="256" height="256" viewBox="0 0 256 256" role="img" aria-labelledby="title desc">
+  <title id="title">Relay mark</title>
+  <desc id="desc">A continuous relay route linking a source node to a destination node while forming an R.</desc>
+  <rect x="14" y="14" width="228" height="228" rx="72" fill="#0b5e58" stroke="#f7fffd" stroke-width="8"/>
+  <path d="M70 190V70h62c35 0 57 19 57 46s-22 46-57 46H94" fill="none" stroke="#07433f" stroke-linecap="round" stroke-linejoin="round" stroke-width="34"/>
+  <path d="M70 190V70h62c35 0 57 19 57 46s-22 46-57 46H94" fill="none" stroke="#f7fffd" stroke-linecap="round" stroke-linejoin="round" stroke-width="21"/>
+  <path d="m129 162 62 48" fill="none" stroke="#07433f" stroke-linecap="round" stroke-width="34"/>
+  <path d="m129 162 62 48" fill="none" stroke="#f7fffd" stroke-linecap="round" stroke-width="21"/>
+  <path d="M178 89c7 8 11 17 11 27" fill="none" stroke="#f8cf69" stroke-linecap="round" stroke-width="9"/>
+  <circle cx="70" cy="70" r="18" fill="#a7e8df" stroke="#0b5e58" stroke-width="6"/>
+  <circle cx="192" cy="210" r="18" fill="#f8cf69" stroke="#0b5e58" stroke-width="6"/>
+</svg>
